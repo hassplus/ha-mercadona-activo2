@@ -1,0 +1,1 @@
+# ha-mercadona-activo2
