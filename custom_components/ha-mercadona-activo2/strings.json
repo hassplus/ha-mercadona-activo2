@@ -1,0 +1,26 @@
+{
+  "title": "Mercadona Activo2",
+  "config": {
+    "step": {
+      "init": {
+        "title": "Add Mercadona Activo2 account",
+        "description": "Configure your Activo2 account",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "Your username",
+          "password": "Your password"
+        }
+      }
+    },
+    "error": {
+      "wrong_credentials": "Wrong username or password",
+      "cannot_connect": "Cannot connect"
+    },
+    "abort": {
+      "unknown": "Unknown error occurred"
+    }
+  }
+}

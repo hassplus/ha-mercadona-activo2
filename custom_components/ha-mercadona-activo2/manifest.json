@@ -1,0 +1,14 @@
+{
+  "domain": "ha-mercadona-activo2",
+  "name": "Mercadona Activo2",
+  "codeowners": [
+    "@hassplus"
+  ],
+  "config_flow": true,
+  "dependencies": ["calendar"],
+  "documentation": "https://github.com/hassplus/ha-mercadona-activo2",
+  "issue_tracker": "https://github.com/hassplus/ha-mercadona-activo2/issues",
+  "iot_class": "cloud_polling",
+  "requirements": ["homeassistant>=2024.12.0"],
+  "version": "0.2.0"
+}
