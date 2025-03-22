@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 import logging
 from .const import *
-from .dto import ScheduleResponse
+from .scheduleDTO import ScheduleResponse
+from .userinfoDTO import UserDTO
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,28 +48,26 @@ class Activo2API(object):
             headers.update({"Authorization": f"Bearer {id_token}"})
         return headers
 
-    async def getUserInfo(self, id_token):
+    async def getUserInfo(self, id_token) -> UserDTO:
         response_api = await self._session.post(API_URL_USERINFO, headers=self._generateHeaders(id_token))
-        _LOGGER.debug(response_api)
+        _LOGGER.info(response_api)
         if response_api.status == 200:
-            json = await response_api.json()
-            userid = json["userid"]
-            fullname = json["name"] + " " + json["lastname"]
-            photo = json["photo"]
-            return {"userid": userid, "fullname": fullname, "photourl": photo}
+            api_json = await response_api.json()
+            _LOGGER.debug(api_json)
+            return UserDTO(**api_json)
         else:
             _LOGGER.error(f"Error calling API: {response_api.status}. Body: {await response_api.text()}")
-            return None
+        return UserDTO()
 
     # -----------------------
 
     async def getFullDaysData(self, id_token) -> ScheduleResponse:
         response_api = await self._session.get(API_URL_SCHEDULE, headers=self._generateHeaders(id_token))
-        _LOGGER.debug(response_api)
+        _LOGGER.info(response_api)
 
-        # Procesa la respuesta de la API
         if response_api.status == 200:
             api_json = await response_api.json()
+            _LOGGER.debug(api_json)
             # Convertimos el JSON recibido a una instancia del DTO ScheduleResponse
             return ScheduleResponse(**api_json)
         else:

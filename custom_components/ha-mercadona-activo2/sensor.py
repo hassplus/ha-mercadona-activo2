@@ -10,24 +10,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, SENSOR_PREFIX
 from .coordinator import Activo2Coordinator
+from .lib.userinfoDTO import UserDTO
 
 _LOGGER = logging.getLogger(__name__)
 
 SENSOR_TYPES_USERINFO: Final[tuple[SensorEntityDescription, ...]] = (
     SensorEntityDescription(
-        key="userid",
-        name="User Id",
+        key="user",
+        name="User Info",
         icon="mdi:card-account-details-outline",
-    ),
-    SensorEntityDescription(
-        key="fullname",
-        name="Full name",
-        icon="mdi:account",
-    ),
-    SensorEntityDescription(
-        key="photourl",
-        name="Photo Url",
-        icon="mdi:image",
     ),
 )
 
@@ -38,11 +29,11 @@ async def async_setup_entry(
 ) -> None:
     """Configura los sensores de información de usuario."""
     coordinator: Activo2Coordinator = hass.data[DOMAIN][entry.entry_id]
-    username = entry.data["username"]
+    user_info : UserDTO = coordinator.data["userinfo"]
 
     entities = []
     for description in SENSOR_TYPES_USERINFO:
-        entities.append(Activo2UserInfoEntity(coordinator, description, username))
+        entities.append(Activo2UserInfoEntity(coordinator, description, user_info.userid))
     async_add_entities(entities)
 
 class Activo2UserInfoEntity(CoordinatorEntity, SensorEntity):
@@ -51,13 +42,13 @@ class Activo2UserInfoEntity(CoordinatorEntity, SensorEntity):
         self,
         coordinator: Activo2Coordinator,
         description: SensorEntityDescription,
-        username: str,
+        userid: str,
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
-        self._username = username
-        self._attr_name = f"{SENSOR_PREFIX} {username} {description.name}"
-        self._attr_unique_id = f"{SENSOR_PREFIX}_{username}_{description.key}"
+        self._username = userid
+        self._attr_name = f"{SENSOR_PREFIX} {userid} {description.name}"
+        self._attr_unique_id = f"{SENSOR_PREFIX}_{userid}_{description.key}"
         self._attr_icon = description.icon
 
     @property
@@ -66,16 +57,42 @@ class Activo2UserInfoEntity(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        if not self.available or self.entity_description.key not in self.coordinator.data:
+        if not self.available:
             return None
-        return self.coordinator.data[self.entity_description.key]
+        user_info : UserDTO = self.coordinator.data["userinfo"]
+        return f"{user_info.name} {user_info.lastname}"
 
     @property
     def entity_picture(self):
-        if (
-            self.entity_description.key == "photourl"
-            and self.coordinator.data
-            and "photourl" in self.coordinator.data
-        ):
-            return self.coordinator.data["photourl"]
+        if self.available:
+            user_info: UserDTO = self.coordinator.data["userinfo"]
+            return user_info.photo
         return None
+
+    @property
+    def extra_state_attributes(self):
+        if not self.available:
+            return None
+
+        user_info: UserDTO = self.coordinator.data["userinfo"]
+        employee_number = None
+        if hasattr(user_info, "companies") and user_info.companies:
+            for company in user_info.companies:
+                if company.active:
+                    employee_number = company.employee_number
+                    break
+
+        return {
+            "userid": user_info.userid,
+            "name": user_info.name,
+            "lastname": user_info.lastname,
+            "email": user_info.email,
+            "photo": user_info.photo,
+            "company": user_info.company,
+            "department": user_info.department,
+            "region": user_info.region,
+            "division_zone": user_info.division_zone,
+            "cod_store": user_info.cod_store,
+            "store": user_info.store,
+            "employee_number": employee_number,
+        }

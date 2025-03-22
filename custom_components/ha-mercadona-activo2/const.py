@@ -6,4 +6,4 @@ from homeassistant.const import Platform
 DOMAIN = "ha-mercadona-activo2"
 SENSOR_PREFIX = 'activo2'
 # Plataformas soportadas
-PLATFORMS = [Platform.SENSOR, Platform.CALENDAR]
+PLATFORMS = [Platform.SENSOR, Platform.CALENDAR, Platform.IMAGE]

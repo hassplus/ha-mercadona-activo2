@@ -1,17 +1,42 @@
 """Data coordinator for Activo2 integration."""
 from datetime import timedelta
 import logging
+from zoneinfo import ZoneInfo
+
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.util import dt as dt_util
+from datetime import datetime
 from .lib.activo2 import Activo2API
+from .lib.scheduleDTO import ScheduleResponse
+from .lib.userinfoDTO import UserDTO
 
 _LOGGER = logging.getLogger(__name__)
 
 # Intervalo de actualización de datos
 UPDATE_INTERVAL = timedelta(minutes=60)
+
+def get_user_offset(cod_company):
+    if cod_company == "08":
+        timezone = ZoneInfo("Europe/Madrid")
+    elif cod_company == "09":
+        timezone = ZoneInfo("Europe/Lisbon")
+    else:
+        timezone = ZoneInfo("Europe/Madrid")
+        _LOGGER.warning(f"Unknown company code: {cod_company}. Using Europe/Madrid as default.")
+
+    # Get current time in the specified timezone
+    now = datetime.now(timezone)
+
+    # Format the offset
+    offset = now.strftime("%z")
+    # Convert from +0100 to +01:00 format
+    if offset:
+        offset = f"{offset[:3]}:{offset[3:]}"
+
+    return offset
 
 
 class Activo2Coordinator(DataUpdateCoordinator):
@@ -42,10 +67,13 @@ class Activo2Coordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed("Failed to authenticate with Activo2 with username = " + self.username)
 
             # Obtener información del usuario
-            user_info = await self.api.getUserInfo(self.id_token)
+            user_info : UserDTO = await self.api.getUserInfo(self.id_token)
+
+            # Get timezone and time offset from company
+            user_offset = get_user_offset(user_info.cod_company)
 
             # Obtener datos completos del calendario
-            schedule_data = await self.api.getFullDaysData(self.id_token)
+            schedule_data : ScheduleResponse = await self.api.getFullDaysData(self.id_token)
 
             # Procesar los datos del calendario para adaptarlos al formato de calendario
             workshifts = []
@@ -59,8 +87,8 @@ class Activo2Coordinator(DataUpdateCoordinator):
                                 for detail in day.detail:
                                     # Procesar el horario general
                                     # Ensure date format is ISO 8601 with timezone
-                                    start_time = f"{day.date}T{detail.schedule.start}:00+00:00"
-                                    end_time = f"{day.date}T{detail.schedule.end}:00+00:00"
+                                    start_time = f"{day.date}T{detail.schedule.start}:00{user_offset}"
+                                    end_time = f"{day.date}T{detail.schedule.end}:00{user_offset}"
 
                                     # Crear evento para el turno completo
                                     workshifts.append({
@@ -77,8 +105,8 @@ class Activo2Coordinator(DataUpdateCoordinator):
                                     # Procesar tareas individuales
                                     for task in detail.taskList:
                                         # Ensure date format is ISO 8601 with timezone
-                                        task_start = f"{day.date}T{task.startHour}:00+00:00"
-                                        task_end = f"{day.date}T{task.endHour}:00+00:00"
+                                        task_start = f"{day.date}T{task.startHour}:00{user_offset}"
+                                        task_end = f"{day.date}T{task.endHour}:00{user_offset}"
 
                                         tasks.append({
                                             "uid": f"task_{day.date}_{task.processId}",
@@ -92,7 +120,8 @@ class Activo2Coordinator(DataUpdateCoordinator):
                                         })
 
             # Combinar datos
-            data = user_info if user_info else {}
+            data = {}
+            data.update({'userinfo': user_info})
             data.update({
                 'workshifts': workshifts,
                 'tasks': tasks
@@ -103,3 +132,4 @@ class Activo2Coordinator(DataUpdateCoordinator):
         except Exception as err:
             _LOGGER.exception("Error fetching Activo2 data: %s", err)
             raise
+
